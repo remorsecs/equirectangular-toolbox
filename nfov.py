@@ -13,7 +13,9 @@
 # limitations under the License.
 
 from math import pi
+from PIL import Image
 import numpy as np
+
 
 class NFOV():
     def __init__(self, height=400, width=800):
@@ -59,8 +61,11 @@ class NFOV():
 
         x0 = np.floor(uf).astype(int)  # coord of pixel to bottom left
         y0 = np.floor(vf).astype(int)
-        x2 = np.add(x0, np.ones(uf.shape).astype(int))  # coords of pixel to top right
+        _x2 = np.add(x0, np.ones(uf.shape).astype(int))  # coords of pixel to top right
         y2 = np.add(y0, np.ones(vf.shape).astype(int))
+
+        x2 = np.mod(_x2, self.frame_width)
+        y2 = np.minimum(y2, self.frame_height - 1)
 
         base_y0 = np.multiply(y0, self.frame_width)
         base_y2 = np.multiply(y2, self.frame_width)
@@ -77,8 +82,8 @@ class NFOV():
         C = np.take(flat_img, C_idx, axis=0)
         D = np.take(flat_img, D_idx, axis=0)
 
-        wa = np.multiply(x2 - uf, y2 - vf)
-        wb = np.multiply(x2 - uf, vf - y0)
+        wa = np.multiply(_x2 - uf, y2 - vf)
+        wb = np.multiply(_x2 - uf, vf - y0)
         wc = np.multiply(uf - x0, y2 - vf)
         wd = np.multiply(uf - x0, vf - y0)
 
@@ -88,9 +93,6 @@ class NFOV():
         CC = np.multiply(C, np.array([wc, wc, wc]).T)
         DD = np.multiply(D, np.array([wd, wd, wd]).T)
         nfov = np.reshape(np.round(AA + BB + CC + DD).astype(np.uint8), [self.height, self.width, 3])
-        import matplotlib.pyplot as plt
-        plt.imshow(nfov)
-        plt.show()
         return nfov
 
     def toNFOV(self, frame, center_point):
@@ -107,8 +109,10 @@ class NFOV():
 
 # test the class
 if __name__ == '__main__':
-    import imageio as im
-    img = im.imread('images/360.jpg')
-    nfov = NFOV()
-    center_point = np.array([0.5, .5])  # camera center point (valid range [0,1])
-    nfov.toNFOV(img, center_point)
+    nfov = NFOV(600, 900)
+    with Image.open('images/example_IndexError.jpg').convert('RGB') as image:
+        center_point = np.array([-0.5, 0.85])  # camera center point (valid range [0,1])
+        image = np.array(image)
+        nfov_image = nfov.toNFOV(image, center_point)
+        nfov_image = Image.fromarray(nfov_image)
+        nfov_image.save('images/example.jpg')
